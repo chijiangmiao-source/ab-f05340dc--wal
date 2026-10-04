@@ -1,0 +1,30 @@
+name: sat-recovery-audit
+
+services:
+  app:
+    build: .
+    image: sat-recovery-audit:latest
+    environment:
+      PORT: "8000"
+    ports:
+      # 宿主机端口可通过 HOST_PORT 环境变量或 .env 文件配置(默认 8080)
+      - "${HOST_PORT:-8080}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+    restart: unless-stopped
+
+  verify:
+    image: sat-recovery-audit:latest
+    build: .
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      BASE_URL: "http://app:8000"
+    # 规则测试 + 构建检查 + API/HTTP 冒烟,完成后以退出码结束
+    command: ["python", "verify/run_tests.py"]
+    restart: "no"
